@@ -1,0 +1,11 @@
+[package]
+name = "wave_rust"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "wave"
+path = "wave.rs"
+
+[dependencies]
+hdf5 = { package = "hdf5-metno", version = "0.13" }

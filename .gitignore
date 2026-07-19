@@ -1,0 +1,6 @@
+# Generated solver data and plots
+*.dat
+*.h5
+*.pdf
+*.png
+*.ong

@@ -1,0 +1,37 @@
+mpirun -np 8 ./wave_mpi
+1D Wave Equation Simulation (C++ with MPI, 2-wide ghost cells)
+==================================================
+Total grid points: 2000000
+Number of MPI processes: 8
+Points per process: 250000
+dx: 0.000000
+dt: 0.000000
+Wave speed c0: 0.500000
+CFL number: 0.100
+Number of iterations: 1000
+Total time: 0.000
+==================================================
+
+Starting simulation...
+Iter  100/1000 | Time: 0.28s | phi: [-0.000031, +0.707082]
+Iter  200/1000 | Time: 0.55s | phi: [-0.000063, +0.707060]
+Iter  300/1000 | Time: 0.83s | phi: [-0.000094, +0.707038]
+Iter  400/1000 | Time: 1.10s | phi: [-0.000126, +0.707016]
+Iter  500/1000 | Time: 1.37s | phi: [-0.000157, +0.706993]
+Iter  600/1000 | Time: 1.65s | phi: [-0.000188, +0.706971]
+Iter  700/1000 | Time: 1.92s | phi: [-0.000220, +0.706949]
+Iter  800/1000 | Time: 2.20s | phi: [-0.000251, +0.706927]
+Iter  900/1000 | Time: 2.47s | phi: [-0.000283, +0.706905]
+Iter 1000/1000 | Time: 2.75s | phi: [-0.000314, +0.706882]
+==================================================
+Simulation complete!
+Total time: 2.750 seconds
+Time per iteration: 2.750 ms
+Iterations per second: 363.7
+==================================================
+
+Numerical vs Analytical:
+Max error: 1.099121e-14
+L2 error: 9.111477e-16
+
+results written to wave_solution_mpi.h5

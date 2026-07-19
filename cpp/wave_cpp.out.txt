@@ -1,0 +1,34 @@
+1D wave equation simulation (C++)
+---------------------------------------------------
+grid points: 2000000
+dx: 0.00000050
+dt: 0.00000010
+wave_speed_c0: 0.50000000
+cfl_number: 0.10000000
+number_of_iterations: 1000
+total_time: 0.00010000
+---------------------------------------------------
+
+starting simulation...
+iter  100/1000 | time: 0.60s | phi: [-1.000000, +1.000000]
+iter  200/1000 | time: 1.19s | phi: [-1.000000, +1.000000]
+iter  300/1000 | time: 1.79s | phi: [-1.000000, +1.000000]
+iter  400/1000 | time: 2.38s | phi: [-1.000000, +1.000000]
+iter  500/1000 | time: 2.96s | phi: [-1.000000, +1.000000]
+iter  600/1000 | time: 3.54s | phi: [-1.000000, +1.000000]
+iter  700/1000 | time: 4.13s | phi: [-1.000000, +1.000000]
+iter  800/1000 | time: 4.71s | phi: [-1.000000, +1.000000]
+iter  900/1000 | time: 5.29s | phi: [-1.000000, +1.000000]
+iter 1000/1000 | time: 5.87s | phi: [-1.000000, +1.000000]
+==================================================
+simulation_complete!
+total_time: 5.87896571 seconds
+time_per_iteration: 5.87896571 ms
+iterations_per_second: 170.1
+==================================================
+
+numerical vs Analytical:
+max_error: 1.099121e-14
+l2_error: 9.111477e-16
+
+results written to wave_solution_cpp.dat

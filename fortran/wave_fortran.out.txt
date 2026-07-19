@@ -1,0 +1,34 @@
+ 1d wave equation simulation (fortran)
+ ==================================================
+grid points: 2000000
+dx:   0.000000
+dt:   0.000000
+wave speed c0:   0.500000
+cfl number:      0.100
+number of iterations: 1000
+total time:   0.00010000
+ ==================================================
+ 
+ starting simulation...
+iter  100/1000 | time:   0.66s | phi: [-1.000000,  1.000000]
+iter  200/1000 | time:   1.26s | phi: [-1.000000,  1.000000]
+iter  300/1000 | time:   1.86s | phi: [-1.000000,  1.000000]
+iter  400/1000 | time:   2.45s | phi: [-1.000000,  1.000000]
+iter  500/1000 | time:   3.04s | phi: [-1.000000,  1.000000]
+iter  600/1000 | time:   3.64s | phi: [-1.000000,  1.000000]
+iter  700/1000 | time:   4.25s | phi: [-1.000000,  1.000000]
+iter  800/1000 | time:   4.87s | phi: [-1.000000,  1.000000]
+iter  900/1000 | time:   5.51s | phi: [-1.000000,  1.000000]
+iter 1000/1000 | time:   6.20s | phi: [-1.000000,  1.000000]
+ --------------------------------------------------
+ simulation complete!
+total time:   6.20511800 seconds
+time per iteration:   6.20511800 ms
+iterations per second:      161.2
+ --------------------------------------------------
+ 
+ numerical vs analytical:
+max error: 1.099121E-14
+l2 error: 9.111477E-16
+ 
+ results written to wave_solution_fortran.bin

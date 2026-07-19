@@ -1,0 +1,12 @@
+1d wave equation simulation (python)
+==================================================
+grid points: 2000000
+dx: 0.00000050
+dt: 0.00000010
+wave_speed_c0: 0.50000000
+cfl_number: 0.10000000
+number_of_iterations: 1000
+total_time: 0.00010000
+==================================================
+
+starting simulation...
