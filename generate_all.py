@@ -21,7 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-clean_setting = 0
+clean_setting = 1
 root_directory = Path(__file__).resolve().parent
 
 # name, directory, run command

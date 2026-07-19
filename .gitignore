@@ -1,6 +1,22 @@
-# Generated solver data and plots
-*.dat
-*.h5
-*.pdf
-*.png
-*.ong
+# Ignore everything
+*
+
+# But descend into directories (required for the rules below to work)
+!*/
+
+# Source files to keep
+!*.py
+!*.c
+!*.cpp
+!*.f90
+!*.rs
+!*.jl
+
+# Build files
+!Makefile
+!makefile
+!*.mk
+
+# The gitignore itself and docs
+!.gitignore
+!README*
