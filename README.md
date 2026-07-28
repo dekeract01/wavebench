@@ -12,7 +12,7 @@ The wave equation is a useful starting point because it is simple enough to unde
 
 ## Implementations
 
-I maintain versions in C++, Fortran, OpenCL C++, Julia, OpenMP C++, MPI C++, MPI Fortran, Python, Python with Numba, and Rust. The serial versions provide reference implementations, while the OpenMP, MPI, OpenCL, and Numba versions let me compare different ways of parallelising or accelerating the same problem.
+I maintain versions in C++, CUDA C++, Fortran, OpenCL C++, Julia, OpenMP C++, MPI C++, MPI Fortran, Python, Python with Numba, and Rust. The serial versions provide reference implementations, while the OpenMP, MPI, OpenCL, CUDA, and Numba versions let me compare different ways of parallelising or accelerating the same problem.
 
 All cases use the same numerical problem:
 
@@ -36,7 +36,7 @@ $$
 
 ## Running The Benchmarks
 
-[`generate_all.py`](generate_all.py) is the root runner. With `clean_setting = 0`, it builds and runs the configured implementations in turn. With `clean_setting = 1`, it runs `make clean` in every directory that has a Makefile and then exits. This keeps cleaning separate from a new benchmark run.
+[`generate_all.py`](generate_all.py) is the root runner. With `clean_setting = 0`, it builds and runs the configured implementations in turn. With `clean_setting = 1`, it runs `make clean` in every directory that has a Makefile and then exits. This keeps cleaning separate from a new benchmark run. The CUDA implementation can be run independently with `make run` in [`cuda_cpp/`](cuda_cpp/).
 
 ```bash
 python generate_all.py
@@ -48,15 +48,15 @@ The solver runs write solution data in their own directories. The shared plottin
 
 ## Benchmark Plots
 
-### Performance Results
+### Fedora Linux Performance Results
 
-![Performance comparison: time per iteration and iterations per second](result_benchmark_comparison.png)
+![Fedora Linux performance comparison: time per iteration and iterations per second](https://dekeract01.github.io/images/result_benchmark_comparison_fedora.png)
 
-The upper panel shows the time per iteration, where lower values are better. The lower panel shows iterations per second, where higher values are better. The bars are sorted by time per iteration. OpenCL is fastest in the current results because its kernels run on the GPU, while the CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution. These are results for this machine and configuration, not universal language rankings.
+The upper panel shows the time per iteration, where lower values are better. The lower panel shows iterations per second, where higher values are better. The bars are sorted by time per iteration. CUDA C++ is fastest in the current Fedora results, at approximately $0.767\,\mathrm{ms}$ per iteration and $1{,}300$ iterations per second on the RTX A4000. The CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution. These are results for this machine and configuration, not universal language rankings.
 
-### Accuracy Results
+### Fedora Linux Accuracy Results
 
-![Maximum error comparison](result_benchmark_error.png)
+![Fedora Linux maximum error comparison](https://dekeract01.github.io/images/result_benchmark_error_fedora.png)
 
 The error figure shows
 
@@ -64,15 +64,31 @@ $$
 \max_x \left|\phi(x,t) - \phi_{\mathrm{exact}}(x,t)\right|
 $$
 
-on a logarithmic scale. Most CPU implementations use double-precision floating-point arithmetic and cluster around $10^{-14}$ in the current results. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. This shows the expected accuracy trade-off between `float` and `double`, alongside the speed benefit of the GPU implementation.
+on a logarithmic scale. The CUDA C++ implementation has a maximum error of $1.23 \times 10^{-14}$, consistent with the double-precision CPU implementations. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. The MPI Fortran result in this run has a larger error, around $6.17 \times 10^{-7}$, which demonstrates why accuracy needs to be assessed alongside timing.
 
 ## Output Format
 
 Most implementations write HDF5 solution files containing `x`, `phi_numerical`, `phi_exact`, and `error`. The root [`plot_wave.py`](plot_wave.py) also supports the older text and binary output files, so I can plot results from every implementation through one script.
 
-## Test System
+## Primary Test System
 
-All benchmark results shown above were produced on the following machine:
+The Fedora benchmark results shown above were produced on the following machine:
+
+| Component | Details |
+| --- | --- |
+| Machine | Dell Precision 3660 |
+| CPU | 13th Gen Intel Core i9-13900K, 32 logical processors @ 5.50 GHz |
+| GPU | NVIDIA RTX A4000 |
+| Integrated GPU | Intel UHD Graphics 770 |
+| Memory | 64 GB |
+| OS | Fedora Linux 37 Workstation Edition (x86_64) |
+| Kernel | 6.5.12-100.fc37.x86_64 |
+
+The CUDA results run on the discrete RTX A4000. Their performance includes the implementation's host-device data handling, so results on other discrete GPUs, integrated GPUs, and CPU-only systems will differ.
+
+## Earlier Reference System
+
+Earlier results were collected on the following Apple Silicon system. They are useful as a separate reference point, but should not be compared as direct language or hardware rankings against the Fedora results above.
 
 | Component | Details |
 | --- | --- |
@@ -82,20 +98,4 @@ All benchmark results shown above were produced on the following machine:
 | Memory | 16 GB unified |
 | OS | macOS Sequoia 15.7.5 (arm64) |
 
-The GPU results (OpenCL) run on the integrated M1 Pro GPU using the same
-unified memory as the CPU, so no host–device transfer over PCIe is involved.
-Results on discrete-GPU systems will differ accordingly.
-
-### Toolchain
-
-| Tool | Version |
-| --- | --- |
-| C/C++ compiler | Apple clang 17.0.0 (arm64) |
-| Fortran compiler | GNU gfortran 16.1.0 (Homebrew GCC) |
-| Rust | rustc 1.97.1 |
-| Julia | 1.12.6 |
-| Python | 3.14.6 |
-| HDF5 | 2.0.0 |
-| MPI | MPICH 4.3.2 (conda-forge) |
-| OpenMP | 5.1 (libomp with Apple clang) |
-| OpenCL | 1.2 (Apple platform, M1 Pro GPU) |
+On this system, OpenCL runs on the integrated M1 Pro GPU using the same unified memory as the CPU, so no host-device transfer over PCIe is involved. Results on discrete-GPU systems differ accordingly.
