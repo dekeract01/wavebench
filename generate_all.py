@@ -21,20 +21,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-clean_setting = 1
+clean_setting = 0
 root_directory = Path(__file__).resolve().parent
 
 # name, directory, run command
 implementations = [
     ("c++",          root_directory / "cpp",          ("make", "run")),
     ("fortran",      root_directory / "fortran",      ("make", "run")),
-    ("opencl c++",   root_directory / "gpu_cpp",      ("make", "run")),
+    # ("opencl c++",   root_directory / "gpu_cpp",      ("make", "run")),
     ("julia",        root_directory / "julia",        ("julia", "wave.jl")),
     ("openmp c++",   root_directory / "mp_cpp",       ("make", "run")),
     ("mpi c++",      root_directory / "mpi_cpp",      ("make", "run")),
+    ("cuda c++",      root_directory / "cuda_cpp",      ("make", "run")),
     ("mpi fortran",  root_directory / "mpi_fortran",  ("make", "run")),
     # ("python",       root_directory / "python",       (sys.executable, "wave.py")),
-    ("python numba", root_directory / "python_numba", (sys.executable, "wave.py")),
+    ("numba", root_directory / "python_numba", (sys.executable, "wave.py")),
     ("rust",         root_directory / "rust",         ("make", "run")),
 ]
 

@@ -116,7 +116,7 @@ for axis, bars in ((axs01[0], bars0), (axs01[1], bars1)):
 axs01[0].set_ylabel('time per iteration $(ms)$')
 axs01[1].set_ylabel('iterations per second $(1/s)$')
 
-axs01[1].set_xticks(positions, labels)
+axs01[1].set_xticks(positions, labels, rotation=45, ha='right', rotation_mode='anchor')
 
 # Enable minor ticks
 axs01[0].minorticks_on()
@@ -129,6 +129,11 @@ plt.yticks(fontsize=fontsize)
 
 fig01.set_size_inches(11, 8)  # Adjust the width and height as needed
 
+axs01[0].set_ylim(0, 13)        # time per iteration axis
+axs01[1].set_ylim(0, 1500)     # iterations per second axis
+
+
+fig01.tight_layout()  # keep the angled labels from being clipped
 plt.savefig(output_file)
 
 # --------------------------------------------------------------
@@ -138,6 +143,9 @@ max_error = [benchmark["max_error"] for benchmark in benchmarks]
 
 bars2 = axs02.bar(positions, max_error, width=0.65, color='k')
 axs02.set_yscale('log')
+
+axs02.set_ylim(1e-15, 8e-6)     # error axis (log scale — give positive values)
+
 
 # compact value labels above each bar
 for bar in bars2:
@@ -149,11 +157,14 @@ for bar in bars2:
 
 axs02.set_ylabel(r'$max \ |\phi - \phi_{exact}|$')
 
-axs02.set_xticks(positions, labels)
+axs02.set_xticks(positions, labels, rotation=45, ha='right', rotation_mode='anchor')
+
 
 fig02.set_size_inches(11, 5)  # Adjust the width and height as needed
 
+fig02.tight_layout()  # keep the angled labels from being clipped
 plt.savefig(error_output_file)
+
 
 print(f"benchmark plot written to {output_file}")
 print(f"error plot written to {error_output_file}")
