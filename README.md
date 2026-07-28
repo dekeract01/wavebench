@@ -66,6 +66,18 @@ $$
 
 on a logarithmic scale. The CUDA C++ implementation has a maximum error of $1.23 \times 10^{-14}$, consistent with the double-precision CPU implementations. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. The MPI Fortran result in this run has a larger error, around $6.17 \times 10^{-7}$, which demonstrates why accuracy needs to be assessed alongside timing.
 
+### macOS Performance Results
+
+![macOS performance comparison: time per iteration and iterations per second](https://dekeract01.github.io/images/result_benchmark_comparison.png)
+
+The OpenCL C++ implementation is fastest in these results because its kernels run on the M1 Pro integrated GPU. The CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution on this Apple Silicon system.
+
+### macOS Accuracy Results
+
+![macOS maximum error comparison](https://dekeract01.github.io/images/result_benchmark_error.png)
+
+Most CPU implementations cluster around $10^{-14}$ maximum error. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. These results belong to the M1 Pro configuration described below and should be interpreted separately from the Fedora measurements.
+
 ## Output Format
 
 Most implementations write HDF5 solution files containing `x`, `phi_numerical`, `phi_exact`, and `error`. The root [`plot_wave.py`](plot_wave.py) also supports the older text and binary output files, so I can plot results from every implementation through one script.
