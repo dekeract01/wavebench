@@ -12,7 +12,9 @@ The wave equation is a useful starting point because it is simple enough to unde
 
 ## Implementations
 
-I maintain versions in C++, CUDA C++, Fortran, OpenCL C++, Julia, OpenMP C++, MPI C++, MPI Fortran, Python, Python with Numba, and Rust. The serial versions provide reference implementations, while the OpenMP, MPI, OpenCL, CUDA, and Numba versions let me compare different ways of parallelising or accelerating the same problem.
+I maintain versions in C++, CUDA C++, Fortran, standard-parallelism Fortran (`do concurrent`), OpenCL C++, Julia, OpenMP C++, MPI C++, MPI Fortran, Python, and Python with Numba, and Rust. The serial versions provide reference implementations, while the OpenMP, MPI, OpenCL, CUDA, standard-parallelism, and Numba versions let me compare different ways of parallelising or accelerating the same problem.
+
+The standard-parallelism Fortran version is the newest addition, and the one I understand least well so far. It is just ordinary Fortran with the loops written as `do concurrent`, and the same source compiles to serial, multi-core CPU, or GPU depending only on the compiler flag I pass to `nvfortran` (`-stdpar=multicore` or `-stdpar=gpu`). I did not write any CUDA or add any directives for it, so I mostly wanted to see how far the compiler could get on its own.
 
 All cases use the same numerical problem:
 
@@ -52,7 +54,13 @@ The solver runs write solution data in their own directories. The shared plottin
 
 ![Fedora Linux performance comparison: time per iteration and iterations per second](https://dekeract01.github.io/images/result_benchmark_comparison_fedora.png)
 
-The upper panel shows the time per iteration, where lower values are better. The lower panel shows iterations per second, where higher values are better. The bars are sorted by time per iteration. CUDA C++ is fastest in the current Fedora results, at approximately $0.767\,\mathrm{ms}$ per iteration and $1{,}300$ iterations per second on the RTX A4000. The CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution. These are results for this machine and configuration, not universal language rankings.
+The upper panel shows the time per iteration, where lower values are better. The lower panel shows iterations per second, where higher values are better. The bars are sorted by time per iteration.
+
+CUDA C++ is still the fastest here, at about $0.767\,\mathrm{ms}$ per iteration and roughly $1{,}300$ iterations per second on the RTX A4000. The result that surprised me is the standard-parallelism Fortran version, which came second at about $1.24\,\mathrm{ms}$ per iteration and around $808$ iterations per second on the same A4000. I did not expect plain Fortran with `do concurrent` to land that close to the hand-written CUDA C++, within roughly 1.6 times, for that little effort. Both of those run on the same GPU, so at least that part is a fair comparison.
+
+I am not completely sure why the gap to CUDA C++ is there. When I built the standard-parallelism version, the compiler reported that it was copying the arrays between the CPU and the GPU around each step, so my guess is that a lot of the difference is data movement rather than the actual computation. I have not properly measured that yet, so I am treating it as a guess for now, and it is the next thing I want to look into.
+
+The remaining CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution. These are results for this machine and configuration, not universal language rankings.
 
 ### Fedora Linux Accuracy Results
 
@@ -64,19 +72,21 @@ $$
 \max_x \left|\phi(x,t) - \phi_{\mathrm{exact}}(x,t)\right|
 $$
 
-on a logarithmic scale. The CUDA C++ implementation has a maximum error of $1.23 \times 10^{-14}$, consistent with the double-precision CPU implementations. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. The MPI Fortran result in this run has a larger error, around $6.17 \times 10^{-7}$, which demonstrates why accuracy needs to be assessed alongside timing.
+on a logarithmic scale. In this run everything sits around $10^{-14}$, at the double-precision floor, including the standard-parallelism Fortran version at $1.23 \times 10^{-14}$, which is reassuring given how little I changed to get it onto the GPU.
+
+Earlier I had a bug in the MPI Fortran version that is worth mentioning, because it is exactly why I keep the accuracy plot next to the timing plot. I was only exchanging one ghost point between the sub-domains, but the fourth-order stencil reaches two points either side, so the points near each internal boundary were using a stale value. That pushed the MPI Fortran error up to about $6.17 \times 10^{-7}$ while every other result stayed near $10^{-14}$. The timing looked perfectly reasonable, so without the accuracy plot I might not have noticed. I have since widened the halo to two points, and MPI Fortran is now back down with everything else at about $1.17 \times 10^{-14}$.
 
 ### macOS Performance Results
 
 ![macOS performance comparison: time per iteration and iterations per second](https://dekeract01.github.io/images/result_benchmark_comparison.png)
 
-The OpenCL C++ implementation is fastest in these results because its kernels run on the M1 Pro integrated GPU. The CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution on this Apple Silicon system.
+The OpenCL C++ implementation is fastest in these results, at about $1.26\,\mathrm{ms}$ per iteration, because its kernels run on the M1 Pro integrated GPU. This one is expected rather than surprising, and it is not really a fair comparison with the others for two reasons. First, the OpenCL version uses single precision, so it moves and computes half as much data as the double-precision implementations. Second, on the M1 the GPU shares unified memory with the CPU, so there is no separate host-device transfer. The accuracy plot below shows the trade-off for the single precision. The remaining CPU results reflect differences in compiler optimisation, memory access, runtime overhead, and parallel execution on this Apple Silicon system.
 
 ### macOS Accuracy Results
 
 ![macOS maximum error comparison](https://dekeract01.github.io/images/result_benchmark_error.png)
 
-Most CPU implementations cluster around $10^{-14}$ maximum error. The OpenCL implementation uses single precision, so its error is larger, around $10^{-5}$. These results belong to the M1 Pro configuration described below and should be interpreted separately from the Fedora measurements.
+Most CPU implementations cluster around $10^{-14}$ maximum error. The OpenCL implementation uses single precision, so its error is much larger, around $10^{-5}$. That larger error is expected and is the direct trade-off for the speed it gets on the integrated GPU. These results belong to the M1 Pro configuration described below and should be interpreted separately from the Fedora measurements.
 
 ## Output Format
 
@@ -96,7 +106,7 @@ The Fedora benchmark results shown above were produced on the following machine:
 | OS | Fedora Linux 37 Workstation Edition (x86_64) |
 | Kernel | 6.5.12-100.fc37.x86_64 |
 
-The CUDA results run on the discrete RTX A4000. Their performance includes the implementation's host-device data handling, so results on other discrete GPUs, integrated GPUs, and CPU-only systems will differ.
+The CUDA and standard-parallelism GPU results run on the discrete RTX A4000. Their performance includes the implementation's host-device data handling, so results on other discrete GPUs, integrated GPUs, and CPU-only systems will differ.
 
 ## Earlier Reference System
 
