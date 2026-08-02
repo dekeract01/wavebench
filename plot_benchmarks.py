@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 import numpy
 
 project_directory = Path(__file__).resolve().parent
-output_file = project_directory / "result_benchmark_comparison.png"
-error_output_file = project_directory / "result_benchmark_error.png"
+output_file = project_directory / "result_benchmark_comparison_fedora.png"
+error_output_file = project_directory / "result_benchmark_error_fedora.png"
 
 metric_patterns = {
     "time_per_iteration":    re.compile(r"^\s*time[ _]per[ _]iteration:\s*([0-9.eE+-]+)", re.IGNORECASE),

@@ -53,7 +53,7 @@ endif
 TARGET = wave_mpi
 SRC = wave_mpi.f90
 
-LOG = wave_mpi.out.txt
+LOG = wave_fortran_mpi.out.txt
 OUTPUT = wave_solution_mpi.h5
 
 
@@ -79,24 +79,16 @@ run: $(TARGET)
 	exit $$status
 
 
-run1: $(TARGET)
-	mpirun -np 1 ./$(TARGET)
+define run_np
+	@mpirun -np $(1) ./$(TARGET) 2>&1 | tee $(LOG)
+endef
 
-
-run2: $(TARGET)
-	mpirun -np 2 ./$(TARGET)
-
-
-run4: $(TARGET)
-	mpirun -np 4 ./$(TARGET)
-
-
-run8: $(TARGET)
-	mpirun -np 8 ./$(TARGET)
-
-
-run16: $(TARGET)
-	mpirun -np 16 ./$(TARGET)
+run:   $(TARGET) ; $(call run_np,4)
+run1:  $(TARGET) ; $(call run_np,1)
+run2:  $(TARGET) ; $(call run_np,2)
+run4:  $(TARGET) ; $(call run_np,4)
+run8:  $(TARGET) ; $(call run_np,8)
+run16: $(TARGET) ; $(call run_np,16)
 
 
 # ================================================================

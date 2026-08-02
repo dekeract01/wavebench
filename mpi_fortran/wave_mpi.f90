@@ -9,6 +9,11 @@
 ! analytical sine-wave solution. rank 0 gathers and writes the comparison
 ! result after the parallel solve completes.
 !
+! the 4th-order central stencil reaches i +/- 2, so each subdomain needs
+! TWO ghost points per side. exchanging only one (the earlier bug) left the
+! two points nearest each internal boundary using a stale far-neighbour
+! value, producing an O(1e-7) error instead of the double-precision floor.
+!
 ! output: wave_solution_mpi_fortran.h5
 ! author: dekeract01, 2023
 ! university of southampton
@@ -17,7 +22,7 @@ program wave_equation_1d_mpi
     use mpi
     use hdf5
     implicit none
-    
+
     ! Simulation parameters
     real(8), parameter :: c0 = 0.5d0          ! Wave speed
     real(8), parameter :: dt = 0.0000001d0    ! Time step
@@ -25,50 +30,50 @@ program wave_equation_1d_mpi
     integer, parameter :: nx_global = 2000000 ! Total grid points
     real(8), parameter :: dx = 1.0d0/nx_global
     real(8), parameter :: pi = 4.0d0*atan(1.0d0)
-    
+
     ! MPI variables
     integer :: ierr, rank, nprocs
     integer :: nx_local, i_start, i_end
     integer :: left_rank, right_rank
     integer :: status(MPI_STATUS_SIZE)
-    
+
     ! Arrays
     real(8), allocatable :: x0(:), x_global(:), phi(:), phi_global(:)
     real(8), allocatable :: phi1(:), phi2(:), k1(:), k2(:), k3(:), dphi_dx(:)
-    real(8) :: phi_left, phi_right  ! Ghost cells for boundary exchange
-    
+    real(8) :: phi_left(2), phi_right(2)  ! two ghost cells per side; stencil reaches i+/-2
+
     ! Variables
     integer :: i, n, nx_per_proc, remainder
     real(8) :: t_final, phi_min, phi_max, max_error, l2_error
     real(8) :: start_time, end_time, total_time
     real(8), allocatable :: phi_exact(:), error(:)
     logical :: nan_detected
-    
+
     ! Initialize MPI
     call MPI_Init(ierr)
     call MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
     call MPI_Comm_size(MPI_COMM_WORLD, nprocs, ierr)
-    
+
     ! Domain decomposition
-    nx_per_proc = nx_global / nprocs
+    nx_per_proc = nx_global/nprocs
     remainder = mod(nx_global, nprocs)
-    
+
     ! Distribute points (give remainder to last process)
     if (rank < nprocs - 1) then
         nx_local = nx_per_proc
-        i_start = rank * nx_per_proc + 1
+        i_start = rank*nx_per_proc + 1
     else
         nx_local = nx_per_proc + remainder
-        i_start = rank * nx_per_proc + 1
+        i_start = rank*nx_per_proc + 1
     end if
     i_end = i_start + nx_local - 1
-    
+
     ! Set neighbor ranks for periodic boundaries
     left_rank = rank - 1
     right_rank = rank + 1
     if (rank == 0) left_rank = nprocs - 1
     if (rank == nprocs - 1) right_rank = 0
-    
+
     ! Allocate local arrays
     allocate(x0(nx_local))
     allocate(phi(nx_local))
@@ -78,7 +83,7 @@ program wave_equation_1d_mpi
     allocate(k2(nx_local))
     allocate(k3(nx_local))
     allocate(dphi_dx(nx_local))
-    
+
     ! Print header (only rank 0)
     if (rank == 0) then
         print *, '1D Wave Equation Simulation (Fortran 90 + MPI)'
@@ -94,38 +99,38 @@ program wave_equation_1d_mpi
         print '(A,F10.8)', 'Total time: ', niter*dt
         print *, repeat('=', 50)
     end if
-    
+
     ! Grid setup (local portion)
     do i = 1, nx_local
-        x0(i) = (i_start + i - 2) * dx
+        x0(i) = (i_start + i - 2)*dx
     end do
-    
+
     ! Initial condition: phi = sin(2*pi*x)
     do i = 1, nx_local
-        phi(i) = sin(2.0d0 * pi * x0(i))
+        phi(i) = sin(2.0d0*pi*x0(i))
     end do
-    
+
     ! Synchronize before starting
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    
+
     ! Time stepping loop
     if (rank == 0) then
         print *, ''
         print *, 'Starting simulation...'
     end if
-    
+
     start_time = MPI_Wtime()
-    
+
     do n = 1, niter
         ! Exchange boundary data with neighbors
         call exchange_boundaries(phi, phi_left, phi_right, nx_local, &
                                  left_rank, right_rank, rank, nprocs)
-        
+
         ! RK3 time step
         call rk3_step_mpi(phi, phi1, phi2, k1, k2, k3, dphi_dx, &
                          phi_left, phi_right, c0, dx, dt, nx_local, &
                          left_rank, right_rank, rank, nprocs)
-        
+
         ! NaN check and progress report (every 100 steps)
         if (mod(n, 100) == 0) then
             nan_detected = .false.
@@ -135,12 +140,12 @@ program wave_equation_1d_mpi
                     exit
                 end if
             end do
-            
+
             if (nan_detected) then
                 print *, 'NaN detected at iteration ', n, ' on rank ', rank
                 call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
-            
+
             if (rank == 0) then
                 end_time = MPI_Wtime()
                 phi_min = minval(phi)
@@ -151,14 +156,14 @@ program wave_equation_1d_mpi
             end if
         end if
     end do
-    
+
     end_time = MPI_Wtime()
     total_time = end_time - start_time
-    
+
     ! Gather results to rank 0
     allocate(phi_global(nx_global))
     call gather_solution(phi, phi_global, nx_local, nx_global, rank, nprocs)
-    
+
     if (rank == 0) then
         print *, repeat('=', 50)
         print *, 'Simulation complete!'
@@ -166,39 +171,39 @@ program wave_equation_1d_mpi
         print '(A,F10.8,A)', 'Time per iteration: ', total_time/niter*1000.0d0, ' ms'
         print '(A,F10.1)', 'Iterations per second: ', niter/total_time
         print *, repeat('=', 50)
-        
+
         ! Analytical solution
         allocate(x_global(nx_global))
         allocate(phi_exact(nx_global))
         allocate(error(nx_global))
-        
-        t_final = niter * dt
+
+        t_final = niter*dt
         do i = 1, nx_global
             x_global(i) = (i-1)*dx
-            phi_exact(i) = sin(2.0d0 * pi * (x_global(i) - c0*t_final))
+            phi_exact(i) = sin(2.0d0*pi*(x_global(i) - c0*t_final))
             error(i) = abs(phi_global(i) - phi_exact(i))
         end do
-        
+
         max_error = maxval(error)
-        l2_error = sqrt(sum(error**2) / nx_global)
-        
+        l2_error = sqrt(sum(error**2)/nx_global)
+
         print *, ''
         print *, 'Numerical vs Analytical:'
         print '(A,ES12.6)', 'Max error: ', max_error
         print '(A,ES12.6)', 'L2 error: ', l2_error
-        
+
         call write_hdf5_solution(x_global, phi_global, phi_exact, error)
         print *, ''
         print *, 'results written to wave_solution_mpi_fortran.h5'
 
         deallocate(x_global, phi_exact, error)
     end if
-    
+
     ! Cleanup
     deallocate(x0, phi, phi1, phi2, k1, k2, k3, dphi_dx, phi_global)
-    
+
     call MPI_Finalize(ierr)
-    
+
 contains
 
     subroutine write_hdf5_solution(x, phi_numerical, phi_exact, error)
@@ -259,99 +264,64 @@ contains
         end if
     end subroutine check_hdf5_error
 
-    ! Exchange boundary data with neighbors (periodic)
+    ! Exchange boundary data with neighbors (periodic), two points per side
     subroutine exchange_boundaries(phi, phi_left, phi_right, nx_local, &
                                    left_rank, right_rank, rank, nprocs)
         implicit none
         integer, intent(in) :: nx_local, left_rank, right_rank, rank, nprocs
         real(8), intent(in) :: phi(nx_local)
-        real(8), intent(out) :: phi_left, phi_right
+        real(8), intent(out) :: phi_left(2), phi_right(2)
         integer :: ierr, status(MPI_STATUS_SIZE)
-        
-        ! Send right boundary to right neighbor, receive from left neighbor
-        call MPI_Sendrecv(phi(nx_local), 1, MPI_DOUBLE_PRECISION, right_rank, 0, &
-                         phi_left, 1, MPI_DOUBLE_PRECISION, left_rank, 0, &
-                         MPI_COMM_WORLD, status, ierr)
-        
-        ! Send left boundary to left neighbor, receive from right neighbor
-        call MPI_Sendrecv(phi(1), 1, MPI_DOUBLE_PRECISION, left_rank, 1, &
-                         phi_right, 1, MPI_DOUBLE_PRECISION, right_rank, 1, &
-                         MPI_COMM_WORLD, status, ierr)
+
+        ! send my last two points right; receive my two left ghosts from the left neighbour
+        call MPI_Sendrecv(phi(nx_local-1), 2, MPI_DOUBLE_PRECISION, right_rank, 0, &
+                          phi_left, 2, MPI_DOUBLE_PRECISION, left_rank, 0, &
+                          MPI_COMM_WORLD, status, ierr)
+
+        ! send my first two points left; receive my two right ghosts from the right neighbour
+        call MPI_Sendrecv(phi(1), 2, MPI_DOUBLE_PRECISION, left_rank, 1, &
+                          phi_right, 2, MPI_DOUBLE_PRECISION, right_rank, 1, &
+                          MPI_COMM_WORLD, status, ierr)
     end subroutine exchange_boundaries
-    
-    ! 4th order central difference (with ghost cells)
+
+    ! 4th order central difference (with two ghost cells each side)
     subroutine spatial_derivative_4th_mpi(df, f, phi_left, phi_right, dx, n)
         implicit none
         integer, intent(in) :: n
-        real(8), intent(in) :: f(n), dx, phi_left, phi_right
+        real(8), intent(in) :: f(n), dx, phi_left(2), phi_right(2)
         real(8), intent(out) :: df(n)
         integer :: i
         real(8) :: inv_12dx
-        real(8) :: fm2, fm1, fp1, fp2
-        
-        inv_12dx = 1.0d0 / (12.0d0 * dx)
-        
+        real(8) :: fp(-1:n+2)   ! local field padded with two ghost cells each side
+
+        inv_12dx = 1.0d0/(12.0d0*dx)
+
+        fp(1:n) = f
+        fp(-1)  = phi_left(1)    ! f(-1): second-to-last point of left neighbour
+        fp(0)   = phi_left(2)    ! f(0):  last point of left neighbour
+        fp(n+1) = phi_right(1)   ! f(n+1): first point of right neighbour
+        fp(n+2) = phi_right(2)   ! f(n+2): second point of right neighbour
+
         do i = 1, n
-            ! Handle boundary points with ghost cells
-            if (i == 1) then
-                fm2 = phi_left
-                fm1 = phi_left
-                if (n == 1) then
-                    fp1 = phi_right
-                    fp2 = phi_right
-                else if (i+1 <= n) then
-                    fp1 = f(i+1)
-                    if (i+2 <= n) then
-                        fp2 = f(i+2)
-                    else
-                        fp2 = phi_right
-                    end if
-                end if
-            else if (i == 2) then
-                fm2 = phi_left
-                fm1 = f(i-1)
-                fp1 = f(i+1)
-                if (i+2 <= n) then
-                    fp2 = f(i+2)
-                else
-                    fp2 = phi_right
-                end if
-            else if (i == n-1) then
-                fm2 = f(i-2)
-                fm1 = f(i-1)
-                fp1 = f(i+1)
-                fp2 = phi_right
-            else if (i == n) then
-                fm2 = f(i-2)
-                fm1 = f(i-1)
-                fp1 = phi_right
-                fp2 = phi_right
-            else
-                fm2 = f(i-2)
-                fm1 = f(i-1)
-                fp1 = f(i+1)
-                fp2 = f(i+2)
-            end if
-            
-            df(i) = (-fp2 + 8.0d0*fp1 - 8.0d0*fm1 + fm2) * inv_12dx
+            df(i) = (-fp(i+2)+8.0d0*fp(i+1)-8.0d0*fp(i-1)+fp(i-2))*inv_12dx
         end do
     end subroutine spatial_derivative_4th_mpi
-    
+
     ! RHS with MPI boundaries
     subroutine rhs_mpi(dphi, phi, dphi_dx, phi_left, phi_right, c0, dx, n)
         implicit none
         integer, intent(in) :: n
-        real(8), intent(in) :: phi(n), c0, dx, phi_left, phi_right
+        real(8), intent(in) :: phi(n), c0, dx, phi_left(2), phi_right(2)
         real(8), intent(out) :: dphi(n), dphi_dx(n)
         integer :: i
-        
+
         call spatial_derivative_4th_mpi(dphi_dx, phi, phi_left, phi_right, dx, n)
-        
+
         do i = 1, n
-            dphi(i) = -c0 * dphi_dx(i)
+            dphi(i) = -c0*dphi_dx(i)
         end do
     end subroutine rhs_mpi
-    
+
     ! RK3 time step with MPI
     subroutine rk3_step_mpi(phi, phi1, phi2, k1, k2, k3, dphi_dx, &
                            phi_left, phi_right, c0, dx, dt, n, &
@@ -361,31 +331,31 @@ contains
         real(8), intent(in) :: c0, dx, dt
         real(8), intent(inout) :: phi(n)
         real(8), intent(out) :: phi1(n), phi2(n), k1(n), k2(n), k3(n), dphi_dx(n)
-        real(8), intent(inout) :: phi_left, phi_right
+        real(8), intent(inout) :: phi_left(2), phi_right(2)
         integer :: i
-        real(8) :: phi1_left, phi1_right, phi2_left, phi2_right
-        
+        real(8) :: phi1_left(2), phi1_right(2), phi2_left(2), phi2_right(2)
+
         ! Stage 1
         call rhs_mpi(k1, phi, dphi_dx, phi_left, phi_right, c0, dx, n)
         do i = 1, n
-            phi1(i) = phi(i) + dt * k1(i)
+            phi1(i) = phi(i) + dt*k1(i)
         end do
         call exchange_boundaries(phi1, phi1_left, phi1_right, n, left_rank, right_rank, rank, nprocs)
-        
+
         ! Stage 2
         call rhs_mpi(k2, phi1, dphi_dx, phi1_left, phi1_right, c0, dx, n)
         do i = 1, n
-            phi2(i) = phi(i) + dt * (0.25d0*k1(i) + 0.25d0*k2(i))
+            phi2(i) = phi(i) + dt*(0.25d0*k1(i) + 0.25d0*k2(i))
         end do
         call exchange_boundaries(phi2, phi2_left, phi2_right, n, left_rank, right_rank, rank, nprocs)
-        
+
         ! Stage 3
         call rhs_mpi(k3, phi2, dphi_dx, phi2_left, phi2_right, c0, dx, n)
         do i = 1, n
-            phi(i) = phi(i) + dt * (k1(i)/6.0d0 + k2(i)/6.0d0 + 2.0d0*k3(i)/3.0d0)
+            phi(i) = phi(i) + dt*(k1(i)/6.0d0 + k2(i)/6.0d0 + 2.0d0*k3(i)/3.0d0)
         end do
     end subroutine rk3_step_mpi
-    
+
     ! Gather solution from all processes to rank 0
     subroutine gather_solution(phi_local, phi_global, nx_local, nx_global, rank, nprocs)
         implicit none
@@ -395,13 +365,13 @@ contains
         integer :: ierr
         integer, allocatable :: recvcounts(:), displs(:)
         integer :: i, nx_per_proc, remainder
-        
+
         allocate(recvcounts(nprocs))
         allocate(displs(nprocs))
-        
-        nx_per_proc = nx_global / nprocs
+
+        nx_per_proc = nx_global/nprocs
         remainder = mod(nx_global, nprocs)
-        
+
         do i = 1, nprocs
             if (i < nprocs) then
                 recvcounts(i) = nx_per_proc
@@ -414,11 +384,11 @@ contains
                 displs(i) = displs(i-1) + recvcounts(i-1)
             end if
         end do
-        
+
         call MPI_Gatherv(phi_local, nx_local, MPI_DOUBLE_PRECISION, &
                         phi_global, recvcounts, displs, MPI_DOUBLE_PRECISION, &
                         0, MPI_COMM_WORLD, ierr)
-        
+
         deallocate(recvcounts, displs)
     end subroutine gather_solution
 
